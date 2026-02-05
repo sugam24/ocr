@@ -71,15 +71,48 @@ class HuggingFaceLexiSightModel(OCRModel):
             logger.info(LogMessages.MODEL_OFFLINE_FOUND.format(model_path))
 
         try:
-            # Use sdpa and bfloat16 as per reference
-            self.model = AutoModelForCausalLM.from_pretrained(
-                model_path,
-                trust_remote_code=True,
-                attn_implementation="sdpa",
-                dtype=torch.bfloat16, 
-                device_map="auto",
-                local_files_only=True
-            ).eval()
+            # Determine device_map based on DEVICE setting
+            if settings.DEVICE == "cpu":
+                device_map = "cpu"
+            else:
+                device_map = "auto"
+            
+            # Check if this is a pre-quantized 4-bit model
+            # The helizac/dots.ocr-4bit model has quantization config embedded
+            # so we don't need to specify torch_dtype - it will use the quantized weights
+            is_4bit_model = "4bit" in self.model_name.lower() or "4-bit" in self.model_name.lower()
+            
+            if is_4bit_model:
+                logger.info("Loading 4-bit quantized model...")
+                # For pre-quantized models, explicitly override the compute dtype to float16
+                # to prevent dtype mismatches (BFloat16 vs Float16)
+                from transformers import BitsAndBytesConfig
+                quantization_config = BitsAndBytesConfig(
+                    load_in_4bit=True,
+                    bnb_4bit_compute_dtype=torch.float16,
+                    bnb_4bit_quant_type="nf4",
+                    bnb_4bit_use_double_quant=True,
+                )
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    model_path,
+                    trust_remote_code=True,
+                    attn_implementation="eager",
+                    device_map=device_map,
+                    local_files_only=True,
+                    quantization_config=quantization_config,
+                    torch_dtype=torch.float16,
+                ).eval()
+            else:
+                # For non-quantized models, use original logic
+                model_dtype = torch.float32 if settings.DEVICE == "cpu" else torch.bfloat16
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    model_path,
+                    trust_remote_code=True,
+                    attn_implementation="sdpa",
+                    torch_dtype=model_dtype, 
+                    device_map=device_map,
+                    local_files_only=True
+                ).eval()
             
             try:
                 self.processor = AutoProcessor.from_pretrained(
@@ -165,10 +198,17 @@ class HuggingFaceLexiSightModel(OCRModel):
             }
             
             # Update with image tensors, ensuring correct dtype
+            # For 4-bit models, need to use float16; for regular models, use model.dtype
+            is_4bit = "4bit" in self.model_name.lower() or "4-bit" in self.model_name.lower()
             for k, v in image_tensor_dict.items():
                 if k == 'pixel_values':
-                    # visual features must match model dtype (bfloat16/float16)
-                    inputs[k] = v.to(self.device, dtype=self.model.dtype)
+                    # visual features must match model dtype
+                    # 4-bit quantized models use float16
+                    if is_4bit:
+                        model_dtype = torch.float16
+                    else:
+                        model_dtype = self.model.dtype
+                    inputs[k] = v.to(self.device, dtype=model_dtype)
                 else:
                     # other params like grid_thw are usually int/long
                     inputs[k] = v.to(self.device)

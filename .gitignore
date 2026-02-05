@@ -3,4 +3,5 @@ __pycache__/
 .env
 .venv/
 /Model/
+/Model-4bit/
 /logs/*

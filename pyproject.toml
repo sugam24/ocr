@@ -13,12 +13,13 @@ dependencies = [
     "pdf2image",
     "python-dotenv",
     "pillow",
-    # vllm is provided by the base image in Docker, 
+    # vllm is provided by the base image in Docker,
     # but listed here for local dev if on Linux/WSL
-    "vllm>=0.6.0; sys_platform != 'win32'", 
+    "vllm>=0.6.0; sys_platform != 'win32'",
     "transformers>=4.46.0",
     "accelerate>=0.26.0",
-    "qwen-vl-utils"
+    "qwen-vl-utils",
+    "bitsandbytes>=0.49.1",
 ]
 
 [tool.uv]
