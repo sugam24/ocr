@@ -16,6 +16,7 @@
 8. [Common Issues and Solutions](#common-issues-and-solutions)
 
 ---
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 ## 🎯 What is This Project?
 
