@@ -5,3 +5,4 @@ __pycache__/
 /Model/
 /Model-4bit/
 /logs/*
+/data/
