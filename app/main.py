@@ -6,11 +6,10 @@ from .api.routes import router
 from .api.errors import generic_exception_handler, validation_exception_handler
 from .engines.loader import get_model
 from .core.messages import LogMessages
-import threading
 import logging
 
 setup_logging()
-logger = logging.getLogger("lexisight")
+logger = logging.getLogger("lightonocr")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -21,8 +20,6 @@ async def lifespan(app: FastAPI):
         get_model()
     except Exception as e:
         logger.error(LogMessages.MODEL_INIT_FAIL.format(e))
-        # In a real orchestrator, we might want to crash here so we don't start unhealthy.
-        # But letting it run allows checking logs.
     
     yield
     
@@ -35,11 +32,9 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-app.include_router(router, prefix="") # POST /api/inference, GET /info
+app.include_router(router, prefix="")
 
 app.add_exception_handler(Exception, generic_exception_handler)
-# Validation errors are handled by FastAPI default usually, but we can override
-# app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
 @app.get("/health")
 def health_check():
@@ -48,7 +43,7 @@ def health_check():
 @app.get("/")
 def root():
     return {
-        "message": "Welcome to LexiSight OCR Service",
+        "message": "Welcome to LightOnOCR Service",
         "docs": "/docs",
         "health": "/health"
     }

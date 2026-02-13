@@ -1,15 +1,16 @@
-# LexiSight OCR Service
+# LightOnOCR Service
 
-LexiSight is a high-performance microservice for Optical Character Recognition (OCR) and layout analysis, powered by the `rednote-hilab/dots.ocr` model (based on Qwen2-VL). It is containerized and designed to support both local development and high-throughput production environments.
+A high-performance OCR microservice powered by [LightOnOCR-2-1B](https://huggingface.co/lightonai/LightOnOCR-2-1B) — a state-of-the-art 1B-parameter vision-language model for converting documents (PDFs, scans, images) into clean, naturally ordered text.
 
 ## Features
 
-*   **Advanced OCR & Layout Analysis**: Detects text, tables, figures, formulae, and headers with high accuracy using state-of-the-art vision-language models.
-*   **Structured Output**: Returns a strictly formatted JSON response mapping every element to its bounding box, category, and textual content.
+*   **State-of-the-Art OCR**: Powered by LightOnOCR-2-1B, achieving top performance on OlmOCR-Bench while being ~9× smaller and significantly faster than competing approaches.
+*   **End-to-End**: Fully differentiable, no brittle OCR pipeline — the model directly converts images to text.
+*   **Versatile**: Handles tables, receipts, forms, multi-column layouts, math notation, and more.
 *   **Dual Engine Support**:
     *   **Hugging Face**: Standard implementation for development and consumer-grade hardware.
-    *   **vLLM**: Optimized serving engine for production, offering significant throughput improvements on supported hardware.
-*   **Production Ready**: Built with FastAPI, Docker, and standard observability practices.
+    *   **vLLM**: Optimized serving engine for production with high throughput (~5.71 pages/s on a single H100).
+*   **Production Ready**: Built with FastAPI, Docker, and `uv` for dependency management.
 
 ## Deployment Configuration
 
@@ -17,44 +18,65 @@ The service behavior is controlled through environment variables defined in `.en
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `PROJECT_NAME` | LexiSight | Service identifier. |
-| `MODEL_SOURCE` | `vllm` | **Core Setting**: Selects the inference backend. Use `huggingface` for development or `vllm` for production. |
-| `MODEL_NAME` | `rednote-hilab/dots.ocr` | The specific model identifier from Hugging Face. |
+| `PROJECT_NAME` | LightOnOCR-Service | Service identifier. |
+| `MODEL_SOURCE` | `huggingface` | Selects the inference backend. Use `huggingface` for local dev or `vllm` for production. |
+| `MODEL_NAME` | `lightonai/LightOnOCR-2-1B` | The model identifier from Hugging Face. |
 | `MODEL_CACHE_DIR` | `Model` | Path where model weights are stored persistently. |
-| `DEVICE` | `cuda` | Target device for inference (`cuda` or `cpu`). |
+| `DEVICE` | `cuda` | Target device for inference (`cuda`, `cpu`, or `mps`). |
 | `MAX_FILE_SIZE_MB` | `10` | Maximum allowed payload size for uploads. |
 
 ### Engine Selection Guide
 
 **Hugging Face (`MODEL_SOURCE="huggingface"`)**
-*   **Use Case**: Local development, lower VRAM availability (e.g., RTX 3060/4060).
-*   **Characteristics**: Easier to set up on Windows/WSL; uses standard PyTorch eager execution. Slower but widely compatible.
+*   **Use Case**: Local development, lower VRAM availability.
+*   **Requirements**: `transformers>=5.0.0`, GPU with ~4GB VRAM (bfloat16) or CPU fallback.
+*   **Characteristics**: Easier to set up; uses standard PyTorch inference.
 
 **vLLM (`MODEL_SOURCE="vllm"`)**
 *   **Use Case**: Production deployment on server-grade GPUs (A10g, A100, H100).
-*   **Characteristics**: Uses PagedAttention and optimized kernels for maximum token throughput. Warning: Requires specific CUDA versions and strictly compliant hardware.
+*   **Setup**: Requires starting a separate vLLM server:
+    ```bash
+    vllm serve lightonai/LightOnOCR-2-1B \
+        --limit-mm-per-prompt '{"image": 1}' \
+        --mm-processor-cache-gb 0 \
+        --no-enable-prefix-caching
+    ```
+*   **Characteristics**: Uses PagedAttention and optimized kernels for maximum throughput.
 
 ## Installation
 
-### Prerequisites
-*   Docker and Docker Compose
-*   NVIDIA GPU with drivers and Container Toolkit installed (for GPU support).
+### Local Development (with `uv`)
 
-### Setup
 1.  **Clone the repository**:
     ```bash
-    git clone https://github.com/sagea-ai/LexiSight
-    cd LexiSight
+    git clone <your-repo-url>
+    cd LightOnOCR-Service
     ```
 
-2.  **Configure Environment**:
-    Copy the example configuration and adjust as needed.
+2.  **Install dependencies**:
+    ```bash
+    uv sync
+    ```
+
+3.  **Configure environment**:
     ```bash
     cp .env.example .env
     ```
-    *Editor's Note: If running on a laptop, set `MODEL_SOURCE="huggingface"` in your `.env` file first.*
 
-3.  **Build and Run**:
+4.  **Run the server**:
+    ```bash
+    uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ```
+    The model will be downloaded automatically on first startup (~2GB).
+
+### Docker Deployment
+
+1.  **Configure environment**:
+    ```bash
+    cp .env.example .env
+    ```
+
+2.  **Build and run**:
     ```bash
     docker-compose up --build
     ```
@@ -64,56 +86,20 @@ The service behavior is controlled through environment variables defined in `.en
 
 ### POST /api/inference
 
-Processes an image document and extracts layout and text information.
+Processes an image or PDF document and extracts text using OCR.
 
 **Request**
 *   **Content-Type**: `multipart/form-data`
 *   **Body**: `file` (Binary image data: JPG, PNG, PDF)
 
 **Response**
-Returns a JSON object containing the full text and a list of detected blocks.
-
 ```json
 {
-  "text": "Full extracted text content...",
-  "blocks": [
-    {
-      "bbox": [100, 50, 500, 100],
-      "category": "Section-header",
-      "text": "# Introduction"
-    },
-    {
-      "bbox": [50, 400, 550, 600],
-      "category": "Picture",
-      "text": null
-    }
-  ],
-  "model_version": "lexisight-v1"
+  "text": "Extracted text content from the document...",
+  "blocks": [],
+  "model_version": "lightonocr-2-1b"
 }
 ```
-
-## Performance & Optimization
-
-### Shared GPU Hosting (Tesla T4 Example)
-When hosting LexiSight alongside other services on a single GPU (like a standard 16GB Tesla T4), it is critical to tune the memory usage.
-
-**The Math**:
-*   **Model Size**: Qwen2-VL-2B (bfloat16) ≈ **4.5 GB**
-*   **KV Cache Overhead**: ~1-2 GB
-*   **Total Reserved**: ~6.4 GB
-*   **T4 Capacity**: 16 GB
-
-To safely run this model while leaving room for 4-5 other lightweight services, set the following in your `.env`:
-
-```bash
-# Reserve only ~40% of the GPU for LexiSight (approx 6.4GB)
-VLLM_GPU_MEMORY_UTILIZATION=0.4
-```
-This leaves **~9.6 GB** of VRAM available for other parallel workloads.
-
-### Tuning Parameters
-*   **`VLLM_GPU_MEMORY_UTILIZATION`**: Controls the fraction of GPU memory vLLM blocks. (0.4 = 40%, 0.9 = 90%).
-*   **`VLLM_MAX_MODEL_LEN`**: Reduces context window if you are extremely tight on memory. Default is 8192.
 
 ### GET /info
 
@@ -124,15 +110,73 @@ Returns diagnostic information about the current runtime configuration.
 {
   "engine": "huggingface",
   "device": "cuda",
-  "model": "rednote-hilab/dots.ocr",
+  "model": "lightonai/LightOnOCR-2-1B",
   "api_version": "v1"
 }
 ```
 
+### GET /health
+
+Health check endpoint.
+
+**Response**
+```json
+{
+  "status": "ok"
+}
+```
+
+## Quick Test
+
+```bash
+# Upload an image for OCR
+curl -X POST http://localhost:8000/api/inference \
+  -F "file=@/path/to/your/document.png"
+
+# Check service info
+curl http://localhost:8000/info
+```
+
+## Performance
+
+*   **Speed**: 3.3× faster than Chandra OCR, 5× faster than dots.ocr, 2× faster than PaddleOCR
+*   **Efficiency**: ~493k pages/day on a single H100 for <$0.01 per 1,000 pages
+*   **Model Size**: ~2GB (bfloat16), fits comfortably on consumer GPUs
+
+### PDF Preprocessing
+
+PDFs are rendered at 200 DPI (scale factor ≈ 2.77) as recommended by the model authors. Aspect ratio is maintained to preserve text geometry.
+
 ## Troubleshooting
 
-**Performance Warning**
-If you see logs mentioning "Flash attention not available" or "fallback to eager implementation", this is expected behavior when running in `huggingface` mode on hardware/drivers that do not support Flash Attention 2. The service remains fully functional but will operate at reduced speed.
+**Model Download Issues**
+If the model fails to download, ensure you have internet access and sufficient disk space (~2GB). You can also manually download the model:
+```bash
+huggingface-cli download lightonai/LightOnOCR-2-1B --local-dir Model
+```
 
 **Memory Issues**
-The default `vLLM` configuration aggressively reserves GPU memory properly. If you encounter Out of Memory (OOM) errors during startup, verify that no other processes are consuming VRAM, or switch to `huggingface` mode which allows for more granular memory management strategies.
+LightOnOCR-2-1B is a 1B parameter model requiring ~2-4GB VRAM in bfloat16. If you encounter OOM errors:
+- Switch to CPU: Set `DEVICE="cpu"` in `.env`
+- Ensure no other processes are consuming VRAM
+
+**transformers Version**
+LightOnOCR-2-1B requires `transformers>=5.0.0`. If you get import errors for `LightOnOcrForConditionalGeneration`, upgrade:
+```bash
+uv pip install --upgrade transformers
+```
+
+## License
+
+This service uses the [LightOnOCR-2-1B](https://huggingface.co/lightonai/LightOnOCR-2-1B) model, licensed under Apache License 2.0.
+
+## Citation
+
+```bibtex
+@misc{lightonocr2_2026,
+  title = {LightOnOCR: A 1B End-to-End Multilingual Vision-Language Model for State-of-the-Art OCR},
+  author = {Said Taghadouini and Adrien Cavaillès and Baptiste Aubertin},
+  year = {2026},
+  howpublished = {\url{https://arxiv.org/abs/2601.14251}}
+}
+```

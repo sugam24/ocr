@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  lexisight:
+  lightonocr:
     build: .
     ports:
       - "8000:8000"
@@ -13,7 +13,7 @@ services:
       - .env
     environment:
       - MODEL_CACHE_DIR=/app/Model
-    shm_size: '2gb' # Required for vLLM
+    shm_size: '2gb'
     # deploy:
     #   resources:
     #     reservations:

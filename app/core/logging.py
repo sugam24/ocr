@@ -18,7 +18,7 @@ def setup_logging():
     # Add Rotating File Handler
     # 10MB per file, keep last 5 backups
     file_handler = RotatingFileHandler(
-        os.path.join(log_dir, "lexisight.log"), 
+        os.path.join(log_dir, "lightonocr.log"), 
         maxBytes=10*1024*1024, 
         backupCount=5
     )
@@ -35,5 +35,5 @@ def setup_logging():
     logging.getLogger("torch").setLevel(logging.WARNING)
 
     from .messages import LogMessages
-    logger = logging.getLogger("lexisight")
+    logger = logging.getLogger("lightonocr")
     logger.info(LogMessages.LOGGING_INITIALIZED)

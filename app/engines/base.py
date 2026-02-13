@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 class OCRModel(ABC):
     """
     Abstract interface for OCR models to ensure the HTTP layer remains decoupled
-    from the specific inference backend (HuggingFace, vLLM, Onnx, etc.).
+    from the specific inference backend (HuggingFace, vLLM, etc.).
     """
 
     @abstractmethod
@@ -24,12 +24,11 @@ class OCRModel(ABC):
             image_data: Raw bytes of the image file.
 
         Returns:
-            A dictionary containing the structured OCR results:
+            A dictionary containing the OCR results:
             {
-                "text": str,
-                "confidence": float | None,
-                "blocks": list,
-                "model_version": str
+                "text": str,          # Extracted text content
+                "blocks": list,       # Reserved for future structured output
+                "model_version": str  # Model identifier
             }
         """
         pass

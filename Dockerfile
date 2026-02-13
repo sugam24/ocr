@@ -1,5 +1,4 @@
 # Use vLLM base image for pre-compiled CUDA/Torch/vLLM deps
-# This dramatically reduces build time compared to compiling from scratch
 FROM vllm/vllm-openai:latest
 
 WORKDIR /app
@@ -13,12 +12,6 @@ COPY pyproject.toml .
 # Install dependencies using uv
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv pip install --system .
-
-# Install system deps for pdf2image
-RUN apt-get update && apt-get install -y \
-    poppler-utils \
-    libgl1-mesa-glx \
-    && rm -rf /var/lib/apt/lists/*
 
 # Copy app code
 COPY app /app/app

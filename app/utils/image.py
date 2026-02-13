@@ -1,23 +1,23 @@
 import io
 from PIL import Image
-from typing import List, Union
-from pdf2image import convert_from_bytes
+from typing import List
 
 def load_image_from_bytes(data: bytes) -> Image.Image:
     """
     Load an image from bytes and convert to RGB.
-    If data is PDF, converts first page to image.
+    If data is PDF, converts first page to image at 200 DPI.
     """
     try:
         # Check if PDF signature
         if data.startswith(b"%PDF"):
-            # Convert first page only for now as per requirement "multimedia file" 
-            # implying single unit processing or we could return list.
-            # The model accepts one image.
-            images = convert_from_bytes(data)
-            if not images:
+            import pypdfium2 as pdfium
+            pdf = pdfium.PdfDocument(data)
+            if len(pdf) == 0:
                 raise ValueError("Empty PDF")
-            image = images[0]
+            page = pdf[0]
+            # Render at 200 DPI (scale factor = 200/72 ≈ 2.77)
+            # as recommended by LightOnOCR preprocessing tips
+            image = page.render(scale=2.77).to_pil()
         else:
             image = Image.open(io.BytesIO(data))
         
