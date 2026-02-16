@@ -49,11 +49,17 @@ The service behavior is controlled through environment variables defined in `.en
 
 1.  **Clone the repository**:
     ```bash
-    git clone <your-repo-url>
-    cd LightOnOCR-Service
+    git clone https://github.com/sugam24/ocr.git
+    cd ocr
     ```
 
-2.  **Install dependencies**:
+2.  **Create and activate virtual environment**:
+    ```bash
+    uv venv .lighton_ocr_env
+    source .lighton_ocr_env/bin/activate
+    ```
+
+3.  **Install dependencies**:
     ```bash
     uv sync
     ```
@@ -70,7 +76,7 @@ The service behavior is controlled through environment variables defined in `.en
     The model will be downloaded automatically on first startup (~2GB).
 
 ### Docker Deployment
-
+ 
 1.  **Configure environment**:
     ```bash
     cp .env.example .env

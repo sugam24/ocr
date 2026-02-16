@@ -27,8 +27,12 @@ class HuggingFaceLightOnOCRModel(OCRModel):
         device = settings.DEVICE.lower()
         if device == "mps" and torch.backends.mps.is_available():
             return "mps"
-        elif device == "cuda" and torch.cuda.is_available():
-            return "cuda"
+        elif device == "cuda":
+            if torch.cuda.is_available():
+                return "cuda"
+            else:
+                logger.warning(LogMessages.CUDA_NOT_AVAILABLE)
+                return "cpu"
         else:
             return "cpu"
 

@@ -21,6 +21,7 @@ class LogMessages:
     
     # HF Specific
     HF_INFERENCE_FAIL = "Inference failed: {}"
+    CUDA_NOT_AVAILABLE = "CUDA requested but not available. Falling back to CPU."
     
     # Inference
     INFERENCE_OUTPUT = "Final Output Text: {}"
