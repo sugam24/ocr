@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  lexisight:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./Model:/app/Model
+      - ./app:/app/app
+      - ./logs:/app/logs
+    env_file:
+      - .env
+    environment:
+      - MODEL_CACHE_DIR=/app/Model
+    shm_size: '2gb' # Required for vLLM
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [ gpu ]
